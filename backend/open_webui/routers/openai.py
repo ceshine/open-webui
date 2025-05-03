@@ -119,7 +119,7 @@ def openai_reasoning_model_handler(payload):
     return payload
 
 
-def openai_o3_handler(payload):
+def openai_o3_o4_handler(payload):
     """
     Handle O3 specific parameters
     """
@@ -780,10 +780,10 @@ async def generate_chat_completion(
             payload["max_tokens"] = payload["max_completion_tokens"]
             del payload["max_completion_tokens"]
 
-    # Fix: O3 does not support the "temperature" parameter
-    is_o3 = payload["model"].lower().startswith("o3-")
-    if is_o3:
-        payload = openai_o3_handler(openai_o1_o3_handler(payload))
+    # Fix: O3 and O4 does not support the "temperature" parameter
+    is_o3_o4 = payload["model"].lower().startswith(("o3-", "o4-"))
+    if is_o3_o4:
+        payload = openai_o3_o4_handler(payload)
 
     if "max_tokens" in payload and "max_completion_tokens" in payload:
         del payload["max_tokens"]
