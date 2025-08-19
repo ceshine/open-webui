@@ -116,6 +116,10 @@ def openai_reasoning_model_handler(payload):
         else:
             payload["messages"][0]["role"] = "developer"
 
+    # Remove min_p
+    if "min_p" in payload:
+        del payload["min_p"]
+
     return payload
 
 
