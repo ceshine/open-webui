@@ -295,9 +295,7 @@ async def speech(request: Request, user=Depends(get_verified_user)):
             request.app.state.config.OPENAI_API_CONFIGS.get(url, {}),  # Legacy support
         )
 
-        headers, cookies = await get_headers_and_cookies(
-            request, url, key, api_config, user=user
-        )
+        headers, cookies = await get_headers_and_cookies(request, url, key, api_config, user=user)
 
         r = None
         try:
@@ -423,12 +421,7 @@ async def get_all_models_responses(request: Request, user: UserModel) -> list:
             prefix_id = api_config.get("prefix_id", None)
             tags = api_config.get("tags", [])
 
-<<<<<<< HEAD
-            for model in response if isinstance(response, list) else response.get("data", []):
-=======
-            model_list = (
-                response if isinstance(response, list) else response.get("data", [])
-            )
+            model_list = response if isinstance(response, list) else response.get("data", [])
             if not isinstance(model_list, list):
                 # Catch non-list responses
                 model_list = []
@@ -438,7 +431,6 @@ async def get_all_models_responses(request: Request, user: UserModel) -> list:
                 if "name" in model and model["name"] is None:
                     del model["name"]
 
->>>>>>> origin/main
                 if prefix_id:
                     model["id"] = f"{prefix_id}.{model.get('id', model.get('name', ''))}"
 
@@ -503,29 +495,19 @@ async def get_all_models(request: Request, user: UserModel) -> dict[str, list]:
         log.debug(f"merge_models_lists {model_lists}")
         models = {}
 
-<<<<<<< HEAD
-        for idx, models in enumerate(model_lists):
-            if models is not None and "error" not in models:
-                merged_list.extend(
-                    [
-                        {
-=======
         for idx, model_list in enumerate(model_lists):
             if model_list is not None and "error" not in model_list:
                 for model in model_list:
                     model_id = model.get("id") or model.get("name")
 
-                    if (
-                        "api.openai.com"
-                        in request.app.state.config.OPENAI_API_BASE_URLS[idx]
-                        and not is_supported_openai_models(model_id)
-                    ):
+                    if "api.openai.com" in request.app.state.config.OPENAI_API_BASE_URLS[
+                        idx
+                    ] and not is_supported_openai_models(model_id):
                         # Skip unwanted OpenAI models
                         continue
 
                     if model_id and model_id not in models:
                         models[model_id] = {
->>>>>>> origin/main
                             **model,
                             "name": model.get("name", model_id),
                             "owned_by": "openai",
@@ -533,27 +515,6 @@ async def get_all_models(request: Request, user: UserModel) -> dict[str, list]:
                             "connection_type": model.get("connection_type", "external"),
                             "urlIdx": idx,
                         }
-<<<<<<< HEAD
-                        for model in models
-                        if (model.get("id") or model.get("name"))
-                        and (
-                            "api.openai.com" not in request.app.state.config.OPENAI_API_BASE_URLS[idx]
-                            or not any(
-                                name in model["id"]
-                                for name in [
-                                    "babbage",
-                                    "dall-e",
-                                    "davinci",
-                                    "embedding",
-                                    "tts",
-                                    "whisper",
-                                ]
-                            )
-                        )
-                    ]
-                )
-=======
->>>>>>> origin/main
 
         return models
 
@@ -588,9 +549,7 @@ async def get_models(request: Request, url_idx: Optional[int] = None, user=Depen
             timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST),
         ) as session:
             try:
-                headers, cookies = await get_headers_and_cookies(
-                    request, url, key, api_config, user=user
-                )
+                headers, cookies = await get_headers_and_cookies(request, url, key, api_config, user=user)
 
                 if api_config.get("azure", False):
                     models = {
@@ -657,15 +616,11 @@ class ConnectionVerificationForm(BaseModel):
 
 
 @router.post("/verify")
-<<<<<<< HEAD
-async def verify_connection(form_data: ConnectionVerificationForm, user=Depends(get_admin_user)):
-=======
 async def verify_connection(
     request: Request,
     form_data: ConnectionVerificationForm,
     user=Depends(get_admin_user),
 ):
->>>>>>> origin/main
     url = form_data.url
     key = form_data.key
 
@@ -676,9 +631,7 @@ async def verify_connection(
         timeout=aiohttp.ClientTimeout(total=AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST),
     ) as session:
         try:
-            headers, cookies = await get_headers_and_cookies(
-                request, url, key, api_config, user=user
-            )
+            headers, cookies = await get_headers_and_cookies(request, url, key, api_config, user=user)
 
             if api_config.get("azure", False):
                 # Only set api-key header if not using Azure Entra ID authentication
@@ -827,9 +780,7 @@ async def generate_chat_completion(
     if model_info:
         if model_info.base_model_id:
             base_model_id = (
-                request.base_model_id
-                if hasattr(request, "base_model_id")
-                else model_info.base_model_id
+                request.base_model_id if hasattr(request, "base_model_id") else model_info.base_model_id
             )  # Use request's base_model_id if available
             payload["model"] = base_model_id
             model_id = base_model_id
@@ -894,12 +845,8 @@ async def generate_chat_completion(
     key = request.app.state.config.OPENAI_API_KEYS[idx]
 
     # Check if model is a reasoning model that needs special handling
-<<<<<<< HEAD
     is_reasoning_model = payload["model"].lower().startswith(("o1", "o3", "o4", "gpt-5"))
     if is_reasoning_model:
-=======
-    if is_openai_reasoning_model(payload["model"]):
->>>>>>> origin/main
         payload = openai_reasoning_model_handler(payload)
     elif "api.openai.com" not in url:
         # Remove "max_completion_tokens" from the payload for backward compatibility
@@ -916,43 +863,13 @@ async def generate_chat_completion(
         del payload["max_tokens"]
 
     # Convert the modified body back to JSON
-<<<<<<< HEAD
-    if "logit_bias" in payload:
-        payload["logit_bias"] = json.loads(convert_logit_bias_input_to_json(payload["logit_bias"]))
-
-    headers = {
-        "Content-Type": "application/json",
-        **(
-            {
-                "HTTP-Referer": "https://openwebui.com/",
-                "X-Title": "Open WebUI",
-            }
-            if "openrouter.ai" in url
-            else {}
-        ),
-        **(
-            {
-                "X-OpenWebUI-User-Name": quote(user.name, safe=" "),
-                "X-OpenWebUI-User-Id": user.id,
-                "X-OpenWebUI-User-Email": user.email,
-                "X-OpenWebUI-User-Role": user.role,
-                **({"X-OpenWebUI-Chat-Id": metadata.get("chat_id")} if metadata and metadata.get("chat_id") else {}),
-            }
-            if ENABLE_FORWARD_USER_INFO_HEADERS
-            else {}
-        ),
-    }
-=======
     if "logit_bias" in payload and payload["logit_bias"]:
         logit_bias = convert_logit_bias_input_to_json(payload["logit_bias"])
 
         if logit_bias:
             payload["logit_bias"] = json.loads(logit_bias)
 
-    headers, cookies = await get_headers_and_cookies(
-        request, url, key, api_config, metadata, user=user
-    )
->>>>>>> origin/main
+    headers, cookies = await get_headers_and_cookies(request, url, key, api_config, metadata, user=user)
 
     if api_config.get("azure", False):
         api_version = api_config.get("api_version", "2023-03-15-preview")
@@ -1055,9 +972,7 @@ async def embeddings(request: Request, form_data: dict, user):
     session = None
     streaming = False
 
-    headers, cookies = await get_headers_and_cookies(
-        request, url, key, api_config, user=user
-    )
+    headers, cookies = await get_headers_and_cookies(request, url, key, api_config, user=user)
     try:
         session = aiohttp.ClientSession(trust_env=True)
         r = await session.request(
@@ -1123,9 +1038,7 @@ async def proxy(path: str, request: Request, user=Depends(get_verified_user)):
     streaming = False
 
     try:
-        headers, cookies = await get_headers_and_cookies(
-            request, url, key, api_config, user=user
-        )
+        headers, cookies = await get_headers_and_cookies(request, url, key, api_config, user=user)
 
         if api_config.get("azure", False):
             api_version = api_config.get("api_version", "2023-03-15-preview")
