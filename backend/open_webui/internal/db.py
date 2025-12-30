@@ -9,14 +9,14 @@ from open_webui.env import (
     OPEN_WEBUI_DIR,
     DATABASE_URL,
     DATABASE_SCHEMA,
-    SRC_LOG_LEVELS,
     DATABASE_POOL_MAX_OVERFLOW,
     DATABASE_POOL_RECYCLE,
     DATABASE_POOL_SIZE,
     DATABASE_POOL_TIMEOUT,
+    DATABASE_ENABLE_SQLITE_WAL,
 )
 from peewee_migrate import Router
-from sqlalchemy import Dialect, create_engine, MetaData, types
+from sqlalchemy import Dialect, create_engine, MetaData, event, types
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.pool import QueuePool, NullPool
@@ -24,7 +24,6 @@ from sqlalchemy.sql.type_api import _T
 from typing_extensions import Self
 
 log = logging.getLogger(__name__)
-log.setLevel(SRC_LOG_LEVELS["DB"])
 
 
 class JSONField(types.TypeDecorator):
@@ -91,8 +90,6 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite+sqlcipher://"):
 
     # Extract database path from SQLCipher URL
     db_path = SQLALCHEMY_DATABASE_URL.replace("sqlite+sqlcipher://", "")
-    if db_path.startswith("/"):
-        db_path = db_path[1:]  # Remove leading slash for relative paths
 
     # Create a custom creator function that uses sqlcipher3
     def create_sqlcipher_connection():
@@ -114,6 +111,16 @@ elif "sqlite" in SQLALCHEMY_DATABASE_URL:
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
     )
+
+    def on_connect(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        if DATABASE_ENABLE_SQLITE_WAL:
+            cursor.execute("PRAGMA journal_mode=WAL")
+        else:
+            cursor.execute("PRAGMA journal_mode=DELETE")
+        cursor.close()
+
+    event.listen(engine, "connect", on_connect)
 else:
     if isinstance(DATABASE_POOL_SIZE, int):
         if DATABASE_POOL_SIZE > 0:
